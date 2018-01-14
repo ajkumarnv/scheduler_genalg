@@ -5,6 +5,7 @@ from random import randint
 fout_template = 'out/sol{}.txt'
 
 npopulation = 20
+iters = 10000
 
 
 def calc_fitness(schedule):
@@ -56,11 +57,28 @@ def init_population(jobs, nmachines, nresources):
     return population
 
 
-def solve(jobs, nmachines, nresources, gen_alg=False):
-    population = init_population(jobs, nmachines, nresources)
-    if not gen_alg:
-        return sort_population(population)[0]
+def cross(parent1, parent2):
     return None
+
+
+def mutate(child):
+    return None
+
+
+def solve(jobs, nmachines, nresources, gen_alg=False):
+    population = sort_population(init_population(jobs, nmachines, nresources))
+    if not gen_alg:
+        return population[0]
+
+    # Run elimination genetic algorithm for iters iterations
+    for _ in range(iters):
+        rand_idx = randint(2, len(population) - 1)      # index of the one that we evaluate against created child
+        child = cross(population[0], population[1])     # simple elitistic selection
+        child = mutate(child)
+        if child[1] < population[rand_idx][1]:
+            population[rand_idx] = child                # replace chosen solution if child has better fitness score
+        sort_population(population)
+    return population[0]
 
 
 def wout(sol, test_idx, njobs):
