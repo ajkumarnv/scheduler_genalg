@@ -2,14 +2,24 @@ import ast
 from random import randint, uniform
 from copy import deepcopy
 import sys
+import time
 
 
-fout_template = 'out/sol{}.txt'
+test_template = 'test/ts{}.txt'
+fout_template = 'out/res-{}-ts{}.txt'
 
 npopulation = 20
-iters = 100
+iters = 100000
 cross_prob = 0.2
 mut_prob = 0.2
+
+# Time measurement consts
+m1 = 60
+m1_str = '1m'
+m5 = 5 * 60
+m5_str = '5m'
+ne = 15 * 60
+ne_str = 'ne'
 
 
 def calc_fitness(schedule):
@@ -130,24 +140,30 @@ def mutate(child, nmachines):
     return child
 
 
-def solve(jobs, nmachines, nresources, gen_alg=False):
+def solve(jobs, nmachines, nresources, gen_alg=False, t=m1):
+    start = time.time()
     population = sort_population(init_population(jobs, nmachines, nresources))
     if not gen_alg:
         return population[0]
 
     # Run elimination genetic algorithm for iters iterations
-    for _ in range(iters):
+    for i in range(iters):
+        if i % 100 == 0:
+            print('Iteration #{} | Fitness: {}'.format(i, population[0][1]))
         rand_idx = randint(2, len(population) - 1)      # index of the one that we evaluate against created child
         child = cross(population[0], population[1])     # simple selection with implicit elitism
         child = mutate(child, nmachines)
         if child[1] < population[rand_idx][1]:
             population[rand_idx] = child                # replace chosen solution if child has better fitness score
         sort_population(population)
+
+        if time.time() - start > t:                    # stop improving if time limit exceeded
+            break
     return population[0]
 
 
-def wout(sol, test_idx, njobs):
-    with open(fout_template.format(test_idx), 'w') as fout:
+def wout(sol, t_str, test_idx, njobs):
+    with open(fout_template.format(t_str, test_idx), 'w') as fout:
         sout = ''
         for i in range(njobs):
             for m_idx, m in enumerate(sol[0]):
@@ -157,7 +173,7 @@ def wout(sol, test_idx, njobs):
         fout.write(sout)
 
 
-def test(ftest, test_idx, gen_alg=False):
+def test(ftest, test_idx, ntests, gen_alg=False):
     test_content = ftest.readlines()
 
     number_of_machines = int(test_content[2].split(' ')[-1].replace('\n', ''))
@@ -178,10 +194,12 @@ def test(ftest, test_idx, gen_alg=False):
             else:
                 job_resources = sorted([int(r[1:]) - 1 for r in ast.literal_eval(resources_string)])
             jobs.append((job_id, job_length, job_machines, job_resources))
-    wout(solve(jobs, number_of_machines, number_of_resources, gen_alg), test_idx, len(jobs))
+    for t, t_str in zip([m1, m5, ne], [m1_str, m5_str, ne_str]):
+        print('Solving in {} time...'.format(t_str))
+        wout(solve(jobs, number_of_machines, number_of_resources, gen_alg, t / ntests), t_str, test_idx, len(jobs))
 
 
 if __name__ == '__main__':
     for i in range(1, 11):
-        ftest = open('test/ts{}.txt'.format(i))
-        test(ftest, i, gen_alg=True)
+        ftest = open(test_template.format(i))
+        test(ftest, i, 10, gen_alg=True)
