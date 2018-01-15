@@ -1,13 +1,15 @@
 import ast
 from random import randint, uniform
 from copy import deepcopy
+import sys
 
 
 fout_template = 'out/sol{}.txt'
 
 npopulation = 20
-iters = 10000
+iters = 100
 cross_prob = 0.2
+mut_prob = 0.2
 
 
 def calc_fitness(schedule):
@@ -54,7 +56,7 @@ def init_population(jobs, nmachines, nresources):
             start_time = schedule[rnd_idx][-1][2] if len(schedule[rnd_idx]) > 0 else 0
             end_time = start_time + j[1]
             schedule[rnd_idx].append((j, start_time, end_time))
-        population.append((schedule, calc_fitness(schedule)))
+        population.append((schedule, calc_fitness(schedule), resource_usage))
 
     return population
 
@@ -67,7 +69,9 @@ def cross(parent1, parent2):
     for m_id, m in enumerate(parent1[0]):
         for j in m:
             # Choose job from parent1 only if it is not the job that holds global resources,
-            # otherwise, you most likely end up with solution that is incorrect
+            # otherwise, you most likely end up with solution that is infeasible.
+            # Note: you do not need to explicitly check if job can be put on machine m_id
+            # as the same machine execution restriction exists for job in parent1 :)
             if len(j[0][3]) == 0 and uniform(0, 1) < cross_prob:
                 job_id = j[0][0]
                 job_length = j[0][1]
@@ -99,8 +103,31 @@ def cross(parent1, parent2):
     return child
 
 
-def mutate(child):
-    return None
+def mutate(child, nmachines):
+    # The mutation mechanism places job on less busy machine, i.e., the machine with smaller end_time of last job
+    for m in child[0]:
+        for j in m:
+            if uniform(0, 1) < mut_prob:
+                possible_machines = j[0][2]
+                if len(possible_machines) == 0:
+                    possible_machines = [i for i in range(nmachines)]
+                # Find least busy machine
+                least_end_time = sys.maxsize
+                lbm_id = 0
+                for m_id, m_ in enumerate(child[0]):
+                    if m_id in possible_machines and (len(m_) == 0 or (len(m_) > 0 and m_[-1][2] < least_end_time)):
+                        least_end_time = m_[-1][2] if len(m_) > 0 else 0
+                        lbm_id = m_id
+                # Check job's resources availability
+                for r in j[0][3]:
+                    for ru in child[2][r]:
+                        if ru[0] <= least_end_time <= ru[1]:
+                            return child    # in case global resource is used at chosen moment, no mutation is applied
+                # Add job to least busy machine
+                child[0][lbm_id].append(j)
+                # Remove job from original machine
+                m.remove(j)
+    return child
 
 
 def solve(jobs, nmachines, nresources, gen_alg=False):
@@ -109,10 +136,10 @@ def solve(jobs, nmachines, nresources, gen_alg=False):
         return population[0]
 
     # Run elimination genetic algorithm for iters iterations
-    for _ in range(1):
+    for _ in range(iters):
         rand_idx = randint(2, len(population) - 1)      # index of the one that we evaluate against created child
         child = cross(population[0], population[1])     # simple selection with implicit elitism
-        child = mutate(child)
+        child = mutate(child, nmachines)
         if child[1] < population[rand_idx][1]:
             population[rand_idx] = child                # replace chosen solution if child has better fitness score
         sort_population(population)
