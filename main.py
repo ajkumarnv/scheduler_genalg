@@ -113,6 +113,8 @@ def cross(parent1, parent2):
                         # If it doesn't fit between or if machine is empty, put it on the back
                         if not placed:
                             m2.append(j)
+
+    child[1] = calc_fitness(child[0])   # update fitness
     return child
 
 
@@ -140,6 +142,8 @@ def mutate(child, nmachines):
                 child[0][lbm_id].append(j)
                 # Remove job from original machine
                 m.remove(j)
+
+    child[1] = calc_fitness(child[0])  # update fitness
     return child
 
 
@@ -158,7 +162,7 @@ def solve(jobs, nmachines, nresources, gen_alg=False, t=m1):
         child = mutate(child, nmachines)
         if child[1] < population[rand_idx][1]:
             population[rand_idx] = child                # replace chosen solution if child has better fitness score
-        sort_population(population)
+        population = sort_population(population)
 
         if time.time() - start > t:                    # stop improving if time limit exceeded
             break
