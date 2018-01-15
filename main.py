@@ -10,8 +10,8 @@ fout_template = 'out/res-{}-ts{}.txt'
 
 npopulation = 20
 iters = 100000
-cross_prob = 0.2
-mut_prob = 0.2
+cross_prob = 0.4
+mut_prob = 0.4
 
 # Time measurement consts
 m1 = 60
@@ -48,7 +48,7 @@ def init_population(jobs, nmachines, nresources):
         # First step is to place all jobs holding some global resources as they are more critical than the rest
         for jur in jobs_using_resources:
             rnd_idx = jur[2][randint(0, len(jur[2]) - 1)] if len(jur[2]) > 0 else randint(0, nmachines - 1)
-            # place after last one (on rnd_idx machine) or place first if none is already assigned
+            # place after last one (on rnd_idx machine) or place first if none is yet assigned
             job_start_time = schedule[rnd_idx][-1][2] if len(schedule[rnd_idx]) > 0 else 0
             # check resources availability
             for r in jur[3]:
@@ -59,6 +59,9 @@ def init_population(jobs, nmachines, nresources):
             schedule[rnd_idx].append((jur, job_start_time, job_end_time))  # end_time = start_time + job_length
             for r in jur[3]:
                 resource_usage[r].append((job_start_time, job_end_time))
+            # Sort resource usages as no one guarantees they are put in chronological order
+            #for r_usages in resource_usage:
+            #    sorted(r_usages, key=lambda x: (x[0]))
 
         # Second step is to place all the other jobs on remaining empty places where they can fit (random placement)
         for j in other_jobs:
@@ -147,7 +150,7 @@ def solve(jobs, nmachines, nresources, gen_alg=False, t=m1):
         return population[0]
 
     # Run elimination genetic algorithm for iters iterations
-    for i in range(iters):
+    for i in range(1):
         if i % 100 == 0:
             print('Iteration #{} | Fitness: {}'.format(i, population[0][1]))
         rand_idx = randint(2, len(population) - 1)      # index of the one that we evaluate against created child
@@ -169,7 +172,7 @@ def wout(sol, t_str, test_idx, njobs):
             for m_idx, m in enumerate(sol[0]):
                 for job in m:
                     if job[0][0] == i:
-                        sout += '\'t{}\',{},\'m{}\'.\n'.format(i + 1, job[1], m_idx)
+                        sout += '\'t{}\',{},\'m{}\'.\n'.format(i + 1, job[1], m_idx + 1)
         fout.write(sout)
 
 
@@ -202,4 +205,4 @@ def test(ftest, test_idx, ntests, gen_alg=False):
 if __name__ == '__main__':
     for i in range(1, 11):
         ftest = open(test_template.format(i))
-        test(ftest, i, 10, gen_alg=True)
+        test(ftest, i, 10, gen_alg=False)
