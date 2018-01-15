@@ -1,11 +1,13 @@
 import ast
-from random import randint
+from random import randint, uniform
+from copy import deepcopy
 
 
 fout_template = 'out/sol{}.txt'
 
 npopulation = 20
 iters = 10000
+cross_prob = 0.2
 
 
 def calc_fitness(schedule):
@@ -58,7 +60,43 @@ def init_population(jobs, nmachines, nresources):
 
 
 def cross(parent1, parent2):
-    return None
+    # Take material from parent1, apply to parent2 and return it
+    # Specifically, place job2 on the same machine in parent2 on which job1 is placed in parent1
+    # => Parent1 dictates location of specific job with probability cross_prob
+    child = deepcopy(parent2)
+    for m_id, m in enumerate(parent1[0]):
+        for j in m:
+            # Choose job from parent1 only if it is not the job that holds global resources,
+            # otherwise, you most likely end up with solution that is incorrect
+            if len(j[0][3]) == 0 and uniform(0, 1) < cross_prob:
+                job_id = j[0][0]
+                job_length = j[0][1]
+                # Find job with job_id in parent2 and remove it from that machine
+                # Then place the same job on new machine (which is possibly the same one)
+                removed = False
+                placed = False
+                for m2_id, m2 in enumerate(child[0]):
+                    if not removed:
+                        for j2 in m2:
+                            # If job_id is found, remove the job from that machine and quit looping
+                            if j2[0][0] == job_id:
+                                m2.remove(j2)
+                                removed = True
+                                break
+                    if not placed and m2_id == m_id:
+                        # Add job on specific machine
+                        # Fill out gaps if possible to fit
+                        # Note: in case both jobs are on the same machine - you will first remove and then add it again
+                        for j2_id, j2 in enumerate(m2[:-1]):
+                            # start_time[job_id + 1] - end_time[job_id] (possible gap)
+                            if job_length <= m2[j2_id+1][2] - j2[2]:
+                                m2.insert(j2_id + 1, j)
+                                placed = True
+                                break
+                        # If it doesn't fit between or if machine is empty, put it on the back
+                        if not placed:
+                            m2.append(j)
+    return child
 
 
 def mutate(child):
@@ -71,9 +109,9 @@ def solve(jobs, nmachines, nresources, gen_alg=False):
         return population[0]
 
     # Run elimination genetic algorithm for iters iterations
-    for _ in range(iters):
+    for _ in range(1):
         rand_idx = randint(2, len(population) - 1)      # index of the one that we evaluate against created child
-        child = cross(population[0], population[1])     # simple elitistic selection
+        child = cross(population[0], population[1])     # simple selection with implicit elitism
         child = mutate(child)
         if child[1] < population[rand_idx][1]:
             population[rand_idx] = child                # replace chosen solution if child has better fitness score
@@ -92,7 +130,7 @@ def wout(sol, test_idx, njobs):
         fout.write(sout)
 
 
-def test(ftest, test_idx):
+def test(ftest, test_idx, gen_alg=False):
     test_content = ftest.readlines()
 
     number_of_machines = int(test_content[2].split(' ')[-1].replace('\n', ''))
@@ -113,10 +151,10 @@ def test(ftest, test_idx):
             else:
                 job_resources = sorted([int(r[1:]) - 1 for r in ast.literal_eval(resources_string)])
             jobs.append((job_id, job_length, job_machines, job_resources))
-    wout(solve(jobs, number_of_machines, number_of_resources), test_idx, len(jobs))
+    wout(solve(jobs, number_of_machines, number_of_resources, gen_alg), test_idx, len(jobs))
 
 
 if __name__ == '__main__':
-    for i in range(1, 10):
+    for i in range(1, 11):
         ftest = open('test/ts{}.txt'.format(i))
-        test(ftest, i)
+        test(ftest, i, gen_alg=True)
