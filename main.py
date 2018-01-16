@@ -6,19 +6,22 @@ import time
 
 
 test_template = 'test/ts{}.txt'
-fout_template = 'out/res-{}-ts{}.txt'
+fout_template = 'out_{}/res-{}-ts{}.txt'
 
-npopulation = 20
-iters = 100000
-cross_prob = 0.4
-mut_prob = 0.4
+npopulation = 100
+nelite = 3
+nselect = 50
+iters = 10000
+no_impr_limit = 1000
+cross_prob = 0.3
+mut_prob = 0.6
 
 # Time measurement consts
 m1 = 60
 m1_str = '1m'
 m5 = 5 * 60
 m5_str = '5m'
-ne = 15 * 60
+ne = sys.maxsize    # time is not the stopping condition in this case
 ne_str = 'ne'
 
 
@@ -33,7 +36,7 @@ def calc_fitness(schedule):
 
 
 def sort_population(p):
-    return sorted(p, key=lambda x: (-x[1]))     # descending order, sorting by second tuple element - fitness
+    return sorted(p, key=lambda x: (x[1]))     # descending order, sorting by second tuple element - fitness
 
 
 def init_population(jobs, nmachines, nresources):
@@ -51,27 +54,34 @@ def init_population(jobs, nmachines, nresources):
             # place after last one (on rnd_idx machine) or place first if none is yet assigned
             job_start_time = schedule[rnd_idx][-1][2] if len(schedule[rnd_idx]) > 0 else 0
             # check resources availability
+            # start only when all jobs holding each needed resource finish
             for r in jur[3]:
-                for ru in resource_usage[r]:
-                    if ru[0] <= job_start_time <= ru[1]:
-                        job_start_time = ru[1]      # start only when all jobs holding each needed resource finish
+                if len(resource_usage[r]) > 0 and resource_usage[r][-1][1] > job_start_time:
+                    job_start_time = resource_usage[r][-1][1]
             job_end_time = job_start_time + jur[1]
-            schedule[rnd_idx].append((jur, job_start_time, job_end_time))  # end_time = start_time + job_length
+            schedule[rnd_idx].append([jur, job_start_time, job_end_time])  # end_time = start_time + job_length
             for r in jur[3]:
                 resource_usage[r].append((job_start_time, job_end_time))
-            # Sort resource usages as no one guarantees they are put in chronological order
-            #for r_usages in resource_usage:
-            #    sorted(r_usages, key=lambda x: (x[0]))
 
         # Second step is to place all the other jobs on remaining empty places where they can fit (random placement)
         for j in other_jobs:
             rnd_idx = j[2][randint(0, len(j[2]) - 1)] if len(j[2]) > 0 else randint(0, nmachines - 1)
             start_time = schedule[rnd_idx][-1][2] if len(schedule[rnd_idx]) > 0 else 0
             end_time = start_time + j[1]
-            schedule[rnd_idx].append((j, start_time, end_time))
-        population.append((schedule, calc_fitness(schedule), resource_usage))
+            schedule[rnd_idx].append([j, start_time, end_time])
+        population.append([schedule, calc_fitness(schedule), resource_usage])
 
     return population
+
+
+## DEBUG
+def check_feasibility(child):
+    for m in child[0]:
+        for j in m:
+            for ji in m:
+                if ji[1] < j[1] < ji[2]:
+                    return False
+    return True
 
 
 def cross(parent1, parent2):
@@ -92,14 +102,20 @@ def cross(parent1, parent2):
                 # Then place the same job on new machine (which is possibly the same one)
                 removed = False
                 placed = False
+                same_machine = False
                 for m2_id, m2 in enumerate(child[0]):
                     if not removed:
                         for j2 in m2:
                             # If job_id is found, remove the job from that machine and quit looping
                             if j2[0][0] == job_id:
+                                if m2_id == m_id:
+                                    same_machine = True
+                                    break
                                 m2.remove(j2)
                                 removed = True
                                 break
+                    if same_machine:
+                        break
                     if not placed and m2_id == m_id:
                         # Add job on specific machine
                         # Fill out gaps if possible to fit
@@ -107,7 +123,10 @@ def cross(parent1, parent2):
                         for j2_id, j2 in enumerate(m2[:-1]):
                             # start_time[job_id + 1] - end_time[job_id] (possible gap)
                             if job_length <= m2[j2_id+1][2] - j2[2]:
-                                m2.insert(j2_id + 1, j)
+                                new_j = deepcopy(j)
+                                new_j[1] = j2[2]
+                                new_j[2] = new_j[1] + job_length
+                                m2.insert(j2_id + 1, new_j)
                                 placed = True
                                 break
                         # If it doesn't fit between or if machine is empty, put it on the back
@@ -134,10 +153,16 @@ def mutate(child, nmachines):
                         least_end_time = m_[-1][2] if len(m_) > 0 else 0
                         lbm_id = m_id
                 # Check job's resources availability
+                resource_in_use = False
                 for r in j[0][3]:
+                    if resource_in_use:
+                        break
                     for ru in child[2][r]:
                         if ru[0] <= least_end_time <= ru[1]:
-                            return child    # in case global resource is used at chosen moment, no mutation is applied
+                            resource_in_use = True
+                            break
+                if resource_in_use:     # in case global resource is used at chosen moment, no mutation is applied
+                    continue
                 # Add job to least busy machine
                 child[0][lbm_id].append(j)
                 # Remove job from original machine
@@ -153,24 +178,34 @@ def solve(jobs, nmachines, nresources, gen_alg=False, t=m1):
     if not gen_alg:
         return population[0]
 
+    better_cnt = 0
+    last_improvement = -1
     # Run elimination genetic algorithm for iters iterations
-    for i in range(1):
+    for i in range(iters):
         if i % 100 == 0:
-            print('Iteration #{} | Fitness: {}'.format(i, population[0][1]))
-        rand_idx = randint(2, len(population) - 1)      # index of the one that we evaluate against created child
-        child = cross(population[0], population[1])     # simple selection with implicit elitism
+            print('Iteration #{} | Fitness: {} | Improvements: {}'.format(i, population[0][1], better_cnt))
+            better_cnt = 0
+        rand_parent_id1 = randint(0, nselect)       # simple uniform selection among best nselect best solutions
+        rand_parent_id2 = randint(0, nselect)
+        child = cross(population[rand_parent_id1], population[rand_parent_id2])
         child = mutate(child, nmachines)
-        if child[1] < population[rand_idx][1]:
-            population[rand_idx] = child                # replace chosen solution if child has better fitness score
-        population = sort_population(population)
 
-        if time.time() - start > t:                    # stop improving if time limit exceeded
+        rand_idx = randint(nelite, len(population) - 1)  # index of the one that we evaluate against created child
+        if child[1] < population[rand_idx][1]:
+            better_cnt += 1
+            last_improvement = i
+            population[rand_idx] = deepcopy(child)       # replace chosen solution if child has better fitness score
+            population = sort_population(population)
+
+        # stop improving if time limit exceeded or no improvements in population for no_impr_limit iterations
+        if i - last_improvement > no_impr_limit or time.time() - start > t:
             break
+    print('Solution found after {} iterations: {}\n========================'.format(i, population[0][1]))
     return population[0]
 
 
-def wout(sol, t_str, test_idx, njobs):
-    with open(fout_template.format(t_str, test_idx), 'w') as fout:
+def wout(sol, t_str, test_idx, njobs, feasibility):
+    with open(fout_template.format(feasibility, t_str, test_idx), 'w') as fout:
         sout = ''
         for i in range(njobs):
             for m_idx, m in enumerate(sol[0]):
@@ -203,7 +238,8 @@ def test(ftest, test_idx, ntests, gen_alg=False):
             jobs.append((job_id, job_length, job_machines, job_resources))
     for t, t_str in zip([m1, m5, ne], [m1_str, m5_str, ne_str]):
         print('Solving in {} time...'.format(t_str))
-        wout(solve(jobs, number_of_machines, number_of_resources, gen_alg, t / ntests), t_str, test_idx, len(jobs))
+        wout(solve(deepcopy(jobs), number_of_machines, number_of_resources, gen_alg, t / ntests),
+             t_str, test_idx, len(jobs), 'infeasible' if gen_alg is True else 'feasible')
 
 
 if __name__ == '__main__':
