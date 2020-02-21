@@ -39,5 +39,7 @@ def test(ftest):
     for job in jobs:
         print(f"Scheduling Job {job.id}->{scheduler.schedule_job(job, job.potential_resources)}")
 
+    scheduler.cancel_job(jobs[10])
+
 with open(input_file, 'r') as ftest:
     test(ftest)

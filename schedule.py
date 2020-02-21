@@ -34,7 +34,7 @@ class ResourceSchedule:
         :param slot: slot where job is added
         :return:
         """
-        self.schedule[job] = slot
+        self.schedule[job.id] = slot
         self.assign_slot(slot)
 
     def assign_slot(self, slot):
@@ -53,9 +53,9 @@ class ResourceSchedule:
         :param job:
         :return:
         """
-        slot = self.schedule[job]
+        slot = self.schedule[job.id]
         self.release_slot(slot)
-        del self.schedule[job]
+        del self.schedule[job.id]
 
     def release_slot(self, slot):
         """
@@ -63,7 +63,7 @@ class ResourceSchedule:
         :param slot: slot to be released
         :return: None
         """
-        passs
+        self.slots.remove(slot)
 
     def finished_job(self, job):
         """
@@ -76,8 +76,7 @@ class ResourceSchedule:
 
 class JobSchedule:
     def __init__(self, job, slots=None):
-        self.job_id = job.id
-        self.potential_resources = job.potential_resources
+        self.job = job
         self.assigned_resources = []
         self.start_time = None
         self.end_time = None

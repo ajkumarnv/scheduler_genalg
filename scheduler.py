@@ -1,13 +1,16 @@
-from base import SingletonMetaClass
-from schedule import ResourceSchedule, JobSchedule
 from operator import attrgetter
+
+from base import SingletonMetaClass, Job
+from schedule import ResourceSchedule, JobSchedule
+
 
 class Scheduler(metaclass=SingletonMetaClass):
     """
     Scheduler class
     """
+
     def __init__(self):
-        self.resources_schedule = {} # dictionary of resource schedule
+        self.resources_schedule = {}  # dictionary of resource schedule
         self.job_schedule = {}  # dictionary of job schedule
 
     def schedule_job(self, job, requirements):
@@ -80,7 +83,6 @@ class Scheduler(metaclass=SingletonMetaClass):
 
         return out
 
-
     def _get_slots(self, potential_resources, duration):
         """
         get available slots for potential resources
@@ -103,8 +105,6 @@ class Scheduler(metaclass=SingletonMetaClass):
         for slot in slots:
             self.resources_schedule[slot.resource_id].add_job(job, slot)
 
-
-
     def get_next(self):
         """
         generator yielding next job that can be run
@@ -117,6 +117,18 @@ class Scheduler(metaclass=SingletonMetaClass):
         :param job:
         :return: None
         """
+        print(f"Cancelling Job{job.id}")
+        job_schedule = self.job_schedule.get(job.id, None)
+
+        if job_schedule:
+            for assigned_resource in job_schedule.assigned_resources:
+                self.resources_schedule.get(assigned_resource).cancel_job(job)
+
+            for assigned_resource in job_schedule.assigned_resources:
+                for job_id in list(self.resources_schedule.get(assigned_resource).schedule.keys()):
+                    if job_id != job.id:
+                        self._reschedule(self.job_schedule[job_id].job)
+
 
     def job_finished(self, job):
         """
@@ -124,6 +136,17 @@ class Scheduler(metaclass=SingletonMetaClass):
         :param job:
         :return: None
         """
+
+
+    def _reschedule(self, job):
+        print(f"rescheduling job: {job.id}")
+        job_schedule = self.job_schedule[job.id]
+        print(f"Current start time:{job_schedule.start_time}")
+        for assigned_resource in job_schedule.assigned_resources:
+            self.resources_schedule[assigned_resource].cancel_job(job)
+
+        del self.job_schedule[job.id]
+        self.schedule_job(job, job.potential_resources)
 
 
 
