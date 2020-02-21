@@ -62,6 +62,9 @@ def init_population(jobs, nmachines, nresources):
     population = []  # population = [(sol1, sol_fitness1), ..., (sol_n, sol_fitness_n)]
     jobs_using_resources = [j for j in jobs if len(j[3]) > 0]
     other_jobs = [j for j in jobs if len(j[3]) == 0]
+    with open('test/jur.txt', 'w') as f:
+        for j in jobs_using_resources:
+            f.write(f"{j}\n")
     population = serial_allotment(population,jobs_using_resources, other_jobs, nmachines, nresources)
     for _ in range(npopulation):
         # schedule = sol = [(job1, start_time1, end_time1), ..., (job_n, start_time_n, end_time_n]
@@ -121,6 +124,55 @@ def create_available_slots(schedule, requirements, duration, pad_equal=True):
                     l.append(last)
     return res_availability
 
+def select_slots(available_slots, duration, all=True, reference_time=None):
+    """
+    returns a generator yielding sots where resources are avaialble
+
+    :param available_slots:
+    :param all: True if all resources needs to be available else any resource available
+    :return: generator yielding slo
+    """
+    out = []
+    if all:
+        for slots_r in zip(*available_slots):
+            start_time_slot = max(slots_r, key=lambda x: x[0])
+            start_time = start_time_slot[0]
+            end_time = start_time + duration
+            outcome = True
+            for inner_res in available_slots:
+                if inner_res[-1][-1] == start_time_slot[-1]:
+                    continue
+                found = False
+                for s in inner_res:
+                    if s[0] <= start_time and s[1] >= end_time:
+                        found = True
+                        break
+                if not found:
+                    outcome = False
+                    break  # break from for inner_res in res_availability:
+            if not outcome:
+                continue  # get next slot
+            if outcome:
+                if reference_time and (reference_time[0] - start_time) >= 0:
+                    out.append(start_time_slot)
+                else:
+                    yield start_time_slot
+        if reference_time:
+            out.sort(key=lambda x: reference_time[0] - x[0])
+            for job_start_time in out:
+                yield job_start_time
+    else:
+        reference_start_time = reference_time[0]
+        referene_end_time = reference_time[1]
+        for slots_m in available_slots:
+            for s in slots_m:
+                if s[0] <= reference_start_time and s[1] >= referene_end_time:
+                    out.append(s)
+        if out:
+            out.sort(key=lambda x: reference_start_time - x[0])
+        for job_start_time in out:
+            yield job_start_time
+
 
 def serial_allotment(population, jobs_using_resources, other_jobs, nmachines, nresources):
     # First step is to place all jobs holding some global resources as they are more critical than the rest
@@ -155,62 +207,38 @@ def serial_allotment(population, jobs_using_resources, other_jobs, nmachines, nr
         job_start_time = 0
 
 
-        for slots_r in zip(*res_availability):
-            start_time_slot = max(slots_r, key=lambda x: x[0])
-            start_time = start_time_slot[0]
-            end_time = start_time_slot[0] + jur[1]
-            outcome = True
-            for inner_res in res_availability:
-                if inner_res[-1][-1] == start_time_slot[-1]:
-                    continue
-                found = False
-                for s in inner_res:
-                    if s[0] <= start_time and s[1] >= end_time:
-                        found = True
-                        break
-                if not found:
-                    outcome = False
-                    break # break from for inner_res in res_availability:
-            if not outcome:
-                continue  # get next slot
-            if outcome:
-                job_start_time = start_time
-                outcome = False
-                for slots_m in res_availability_m:
-                    for s in slots_m:
-                        if s[0] <= job_start_time and s[1] >= end_time:
-                            outcome = True
-                            rnd_idx = s[-1]
-                            break
-                    if outcome:
-                        break
-            if outcome:
+        for start_slot in select_slots(res_availability, jur[1], all=True):
+            # start_time_slot = max(slots_r, key=lambda x: x[0])
+            # start_time = start_time_slot[0]
+            # end_time = start_time_slot[0] + jur[1]
+            # outcome = True
+            # for inner_res in res_availability:
+            #     if inner_res[-1][-1] == start_time_slot[-1]:
+            #         continue
+            #     found = False
+            #     for s in inner_res:
+            #         if s[0] <= start_time and s[1] >= end_time:
+            #             found = True
+            #             break
+            #     if not found:
+            #         outcome = False
+            #         break # break from for inner_res in res_availability:
+            # if not outcome:
+            #     continue  # get next slot
+            # if outcome:
+            #     job_start_time = start_time
+            job_start_time = start_slot[0]
+            end_time = job_start_time + jur[1]
+            outcome = False
+            min_diff = 1000000
+            for m_start_slot in select_slots(res_availability_m, jur[1], all=False, reference_time=start_slot):
+                if m_start_slot:
+                    rnd_idx = m_start_slot[-1]
+                    outcome = True
+
+            if outcome or rnd_idx != -1:
                 break
 
-
-        # for m in machines:
-        #     if len(schedule[m]) == 0:
-        #         m_start_time = 0
-        #         else:
-        #             m_start_time = schedule[m][-1][-1]
-        #         if abs(m_start_time - min_start_time[0]) < mindiff:
-        #             mindiff = abs(m_start_time - min_start_time[0])
-        #             rnd_idx = m
-        #     if len(schedule[rnd_idx]) > 0:
-        #         job_start_time = max(schedule[rnd_idx][-1][-1], min_start_time[0])
-        # else:
-        #     for m, s in enumerate(schedule):
-        #         if len(schedule[m]) == 0:
-        #             m_start_time = 0
-        #         else:
-        #             m_start_time = schedule[m][-1][-1] + 1
-        #
-        #         delta = job_start_time - m_start_time
-        #         if  delta >= 0 and delta < mindiff:
-        #             mindiff = delta
-        #             rnd_idx = m
-        #     if len(schedule[rnd_idx]) > 0:
-        #         job_start_time = max(schedule[rnd_idx][-1][-1] + 1, job_start_time)
 
         job_end_time = job_start_time + jur[1]
         schedule[rnd_idx].append([jur, job_start_time, job_end_time])  # end_time = start_time + job_length
@@ -220,6 +248,17 @@ def serial_allotment(population, jobs_using_resources, other_jobs, nmachines, nr
             resource_usage[r].sort(key=lambda x: x[1])
 
     # Second step is to place all the other jobs on remaining empty places where they can fit (random placement)
+    with open('test/jur_allocation.txt', 'w') as f:
+        l = []
+        for j in jobs_using_resources:
+            for m in schedule:
+                for s in m:
+                    if s[0][0] == j[0]:
+                        l.append((j, s[1], s[2]))
+        l.sort(key=lambda x:x[1])
+        for i in l:
+            f.write(f"{i}\n")
+
     machines = range(nmachines)
     for j in other_jobs:
         job_start_time = 0
@@ -424,7 +463,7 @@ def wout(sol, t_str, test_idx, njobs, feasibility):
         l = sorted(l, key=lambda a: a[1])
 
         for i in l:
-            sout += f"t{i[0]}, start:{i[1]}, end:{i[2]} duration:{i[8]} m{i[3]} res_req:{i[5]} priority:{i[6]} resources:{i[7]}\n"
+            sout += f"t{i[0]}, start:{i[1]}, end:{i[2]} duration:{i[8]} m{i[3]} res_req:{i[5]} priority:{i[6]}\n"
         fout.write(sout)
         for m_index, s in enumerate(sol[0]):
             print(f"m{m_index + 1}->{s}")
@@ -441,7 +480,7 @@ def test(ftest, test_idx, ntests, gen_alg=False):
             job_length = int(line.split(',')[1].replace(' ', ''))
             machines_string = line[line.find('['):line.find(']') + 1]
             resources_string = ((line[::-1])[line[::-1].find(']'):line[::-1].find('[') + 1])[::-1]
-            job_priority = 1
+            job_priority = randint(1,50)
 
             if machines_string == '[]':
                 job_machines = []
@@ -452,7 +491,7 @@ def test(ftest, test_idx, ntests, gen_alg=False):
             else:
                 job_resources = sorted([int(r[1:]) - 1 for r in ast.literal_eval(resources_string)])
             jobs.append((job_id, job_length, job_machines, job_resources, job_priority))
-    # jobs = sorted(jobs, key=lambda job: job[-1], reverse=True)
+    jobs = sorted(jobs, key=lambda job: job[-1], reverse=True)
     for job in jobs:
         pass
         # print(job)

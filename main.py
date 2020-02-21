@@ -245,4 +245,4 @@ def test(ftest, test_idx, ntests, gen_alg=False):
 if __name__ == '__main__':
     for i in range(1, 11):
         ftest = open(test_template.format(i))
-        test(ftest, i, 10, gen_alg=False)
+        test(ftest, i, 10, gen_alg=True)
