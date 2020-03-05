@@ -1,0 +1,124 @@
+%% ****  Testsuite  ****
+% Number of tests                  : 25
+% Number of machines               : 100
+% Number of resources              : 10
+
+test( 't1', 411, [], ['r1','r2','r7','r10','r9']).
+test( 't2', 217, [], ['r1','r2','r7','r10','r9']).
+test( 't3', 217, [], ['r1','r2','r7','r10','r9']).
+test( 't11', 90, [], ['r4','r8','r7','r1','r10','r2','r5','r9']).
+test( 't12', 789, [], []).
+test( 't13', 156, [], ['r5','r10','r8','r4','r1','r2','r9']).
+
+
+embedded_board( 'm1').
+embedded_board( 'm2').
+embedded_board( 'm3').
+embedded_board( 'm4').
+embedded_board( 'm5').
+embedded_board( 'm6').
+embedded_board( 'm7').
+embedded_board( 'm8').
+embedded_board( 'm9').
+embedded_board( 'm10').
+embedded_board( 'm11').
+embedded_board( 'm12').
+embedded_board( 'm13').
+embedded_board( 'm14').
+embedded_board( 'm15').
+embedded_board( 'm16').
+embedded_board( 'm17').
+embedded_board( 'm18').
+embedded_board( 'm19').
+embedded_board( 'm20').
+embedded_board( 'm21').
+embedded_board( 'm22').
+embedded_board( 'm23').
+embedded_board( 'm24').
+embedded_board( 'm25').
+embedded_board( 'm26').
+embedded_board( 'm27').
+embedded_board( 'm28').
+embedded_board( 'm29').
+embedded_board( 'm30').
+embedded_board( 'm31').
+embedded_board( 'm32').
+embedded_board( 'm33').
+embedded_board( 'm34').
+embedded_board( 'm35').
+embedded_board( 'm36').
+embedded_board( 'm37').
+embedded_board( 'm38').
+embedded_board( 'm39').
+embedded_board( 'm40').
+embedded_board( 'm41').
+embedded_board( 'm42').
+embedded_board( 'm43').
+embedded_board( 'm44').
+embedded_board( 'm45').
+embedded_board( 'm46').
+embedded_board( 'm47').
+embedded_board( 'm48').
+embedded_board( 'm49').
+embedded_board( 'm50').
+embedded_board( 'm51').
+embedded_board( 'm52').
+embedded_board( 'm53').
+embedded_board( 'm54').
+embedded_board( 'm55').
+embedded_board( 'm56').
+embedded_board( 'm57').
+embedded_board( 'm58').
+embedded_board( 'm59').
+embedded_board( 'm60').
+embedded_board( 'm61').
+embedded_board( 'm62').
+embedded_board( 'm63').
+embedded_board( 'm64').
+embedded_board( 'm65').
+embedded_board( 'm66').
+embedded_board( 'm67').
+embedded_board( 'm68').
+embedded_board( 'm69').
+embedded_board( 'm70').
+embedded_board( 'm71').
+embedded_board( 'm72').
+embedded_board( 'm73').
+embedded_board( 'm74').
+embedded_board( 'm75').
+embedded_board( 'm76').
+embedded_board( 'm77').
+embedded_board( 'm78').
+embedded_board( 'm79').
+embedded_board( 'm80').
+embedded_board( 'm81').
+embedded_board( 'm82').
+embedded_board( 'm83').
+embedded_board( 'm84').
+embedded_board( 'm85').
+embedded_board( 'm86').
+embedded_board( 'm87').
+embedded_board( 'm88').
+embedded_board( 'm89').
+embedded_board( 'm90').
+embedded_board( 'm91').
+embedded_board( 'm92').
+embedded_board( 'm93').
+embedded_board( 'm94').
+embedded_board( 'm95').
+embedded_board( 'm96').
+embedded_board( 'm97').
+embedded_board( 'm98').
+embedded_board( 'm99').
+embedded_board( 'm100').
+
+resource( 'r1', 1).
+resource( 'r2', 1).
+resource( 'r3', 1).
+resource( 'r4', 1).
+resource( 'r5', 1).
+resource( 'r6', 1).
+resource( 'r7', 1).
+resource( 'r8', 1).
+resource( 'r9', 1).
+resource( 'r10', 1).
